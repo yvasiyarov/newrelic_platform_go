@@ -13,6 +13,7 @@ var (
     PLUGIN_NAME = "Example Go Plugin"
     REPORT_INTERVAL_IN_SECONDS = 60
 )
+
 func NewAgent(Version string) * Agent {
     agent := &Agent{
         Version: Version,
@@ -32,6 +33,11 @@ func (agent *Agent) CollectEnvironmentInfo() {
     if agent.Host, err = os.Hostname(); err != nil {
         log.Fatalf("Can not get hostname: %#v \n", err)
     }
+}
+
+type MetriceValue interface {}
+type Metrica interface{
+    getValue() MetriceValue
 }
 
 type Component struct {
@@ -78,6 +84,10 @@ func (plugin *NewrelicPlugin) GetVersion() string {
 
 func (plugin *NewrelicPlugin) GetPluginName() string {
     return PLUGIN_NAME
+}
+
+func (plugin *NewrelicPlugin) AddMetrica(name string, model Metrica) {
+    plugin.Components[0].Metrics[name] = model
 }
 
 func main() {
