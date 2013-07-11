@@ -7,6 +7,11 @@ import (
     "encoding/json"
     "net/http"
     "time"
+    "math"
+)
+
+const (
+    NEWRELIC_API_URL = "https://platform-api.newrelic.com/platform/v1/metrics"
 )
 
 var (
@@ -14,6 +19,7 @@ var (
     VERSION = "0.0.1"
     PLUGIN_NAME = "Example Go Plugin"
     REPORT_INTERVAL_IN_SECONDS = 60
+    NEWRELIC_LICENSE_KEY = ""
 )
 
 func NewAgent(Version string) * Agent {
@@ -82,6 +88,7 @@ type NewrelicPlugin struct {
     Components []Component `json:"components"`
     MetricaModels []Metrica `json:"-"`
     LastPollTime time.Time `json:"-"`
+    Verbose bool `json:"-"`
 }
 
 func NewNewrelicPlugin() *NewrelicPlugin {
@@ -106,6 +113,10 @@ func (plugin *NewrelicPlugin) GetGuid() string {
 
 func (plugin *NewrelicPlugin) GetReportIntervalInSeconds() int {
     return REPORT_INTERVAL_IN_SECONDS
+}
+
+func (plugin *NewrelicPlugin) GetLicenseKey() string {
+    return NEWRELIC_LICENSE_KEY
 }
 
 func (plugin *NewrelicPlugin) GetVersion() string {
@@ -144,6 +155,11 @@ func (plugin *NewrelicPlugin) Harvest() error {
     if httpCode, err := plugin.SendMetricas(); err != nil {
         log.Printf("Can not send metricas to newrelic: %#v\n", err)
     } else {
+
+        if plugin.Verbose {
+            log.Printf("Got HTTP response code:%d", httpCode)
+        }
+
         if err, isFatal := plugin.CheckResponse(httpCode); isFatal {
             log.Fatalf("Got fatal error:%v\n")
         } else {
@@ -154,9 +170,28 @@ func (plugin *NewrelicPlugin) Harvest() error {
 }
 
 func (plugin *NewrelicPlugin) SendMetricas() int, error {
-    res, _ := json.MarshalIndent(plugin, "", "    ");
-    log.Printf(string(res));
-    return 200, nil
+    if metricasJson, err := json.MarshalIndent(plugin, "", "    "); err != nil {
+        return 0, err
+    } else if httpRequest, err := NewRequest("POST", NEWRELIC_API_URL, bytes.NewReader(metricasJson)); err != nil {
+        return 0, err
+    } else {
+        httpRequest.Header.Set("Content-Type", "application/json")
+        httpRequest.Header.Set("X-License-Key", plugin.GetLicenseKey())
+    
+        //TODO: implement compression
+        //httpRequest.Header.Set("Content-Encoding", "gzip")
+        
+        if plugin.Verbose {
+            log.Printf("Send data:%s", string(metricasJson))
+        }
+
+        if httpResponse, err := http.DefaultClient.Do(httpRequest); err != nil {
+            return err
+        } else {
+            defer httpResponse.Body.Close()
+            return httpResponse.StatusCode
+        }
+    }
 }
 
 func (plugin *NewrelicPlugin) CheckResponse(httpResponseCode int) error, bool {
