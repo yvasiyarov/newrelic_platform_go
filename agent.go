@@ -21,7 +21,7 @@ var (
     VERSION = "0.0.1"
     PLUGIN_NAME = "Example Go Plugin"
     REPORT_INTERVAL_IN_SECONDS = 60
-    NEWRELIC_LICENSE_KEY = ""
+    NEWRELIC_LICENSE_KEY = "7bceac019c7dcafae1ef95be3e3a3ff8866de246"
 )
 
 func NewAgent(Version string) * Agent {
@@ -76,6 +76,7 @@ func (aggregatedValue *AggregatedMetricaValue) Aggregate(newValue float64) {
 type Metrica interface{
     GetValue() (float64, error)
     GetName() string
+    GetUnits() string
 }
 
 type Component struct {
@@ -91,6 +92,7 @@ type NewrelicPlugin struct {
     MetricaModels []Metrica `json:"-"`
     LastPollTime time.Time `json:"-"`
     Verbose bool `json:"-"`
+    MetricaKeys []string `json:"-"`
 }
 
 func NewNewrelicPlugin() *NewrelicPlugin {
@@ -129,6 +131,19 @@ func (plugin *NewrelicPlugin) GetPluginName() string {
     return PLUGIN_NAME
 }
 
+func (plugin *NewrelicPlugin) GetMetricaKey(metrica Metrica) string {
+    var keyBuffer bytes.Buffer
+
+    keyBuffer.WriteString("Component/")
+    keyBuffer.WriteString(metrica.GetName())
+    keyBuffer.WriteString("[")
+    keyBuffer.WriteString(metrica.GetUnits())
+    keyBuffer.WriteString("]")
+
+    return keyBuffer.String()
+}
+
+
 func (plugin *NewrelicPlugin) Harvest() error {
     startTime := time.Now()
     
@@ -141,17 +156,19 @@ func (plugin *NewrelicPlugin) Harvest() error {
     plugin.Components[0].Metrics = make(map[string]MetricaValue, len(plugin.MetricaModels))
     for i := 0; i < len(plugin.MetricaModels); i++ {
         model := plugin.MetricaModels[i]
+        metricaKey := plugin.GetMetricaKey(model)
+
         if newValue, err := model.GetValue(); err == nil {
-            if existMetric, ok := plugin.Components[0].Metrics[model.GetName()]; ok {
+            if existMetric, ok := plugin.Components[0].Metrics[metricaKey]; ok {
                 if floatExistVal, ok := existMetric.(float64); ok {
-                    plugin.Components[0].Metrics[model.GetName()] = NewAggregatedMetricaValue(floatExistVal, newValue)
-                }
-            } else {
-                if aggregatedValue, ok := plugin.Components[0].Metrics[model.GetName()].(AggregatedMetricaValue); ok {
+                    plugin.Components[0].Metrics[metricaKey] = NewAggregatedMetricaValue(floatExistVal, newValue)
+                } else if aggregatedValue, ok := plugin.Components[0].Metrics[metricaKey].(AggregatedMetricaValue); ok {
                     aggregatedValue.Aggregate(newValue)
                 } else {
                     panic("Invalid type in metrica value")
                 }
+            } else {
+                plugin.Components[0].Metrics[metricaKey] = newValue
             }
         } else {
             log.Printf("Can not get metrica: %v, got error:%#v", model.GetName(), err)
@@ -168,7 +185,7 @@ func (plugin *NewrelicPlugin) Harvest() error {
         }
 
         if err, isFatal := plugin.CheckResponse(httpCode); isFatal {
-            log.Fatalf("Got fatal error:%v\n")
+            log.Fatalf("Got fatal error:%v\n", err)
         } else {
             log.Printf("WARNING: %v", err)
             return err
@@ -248,7 +265,10 @@ type WaveMetrica struct {
     squarewaveCounter int 
 }
 func (metrica WaveMetrica) GetName() string {
-    return "Wave Metrica"
+    return "Wave_Metrica"
+}
+func (metrica WaveMetrica) GetUnits() string {
+    return "value"
 }
 func (metrica WaveMetrica) GetValue() (float64, error) {
     return 5,  nil
@@ -258,5 +278,6 @@ func main() {
     plugin := NewNewrelicPlugin()
     m := WaveMetrica{}
     plugin.AddMetrica(m);
+    plugin.Verbose = true
     plugin.Harvest()
 }
