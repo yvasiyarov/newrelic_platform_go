@@ -8,6 +8,8 @@ import (
     "net/http"
     "time"
     "math"
+    "bytes"
+    "fmt"
 )
 
 const (
@@ -53,12 +55,12 @@ type AggregatedMetricaValue struct {
     SumOfSquares float64 `json:"sum_of_squares"`
 }
 func NewAggregatedMetricaValue(existValue float64, newValue float64) *AggregatedMetricaValue {
-    v = &AggregatedMetricaValue{
-        Min: math.Min(newValue, existVal),
-        Max: math.Max(newValue, existVal),
-        Total: newValue + existVal,
+    v := &AggregatedMetricaValue{
+        Min: math.Min(newValue, existValue),
+        Max: math.Max(newValue, existValue),
+        Total: newValue + existValue,
         Count: 2,
-        SumOfSquares: newValue * newValue + existValue * existValue
+        SumOfSquares: newValue * newValue + existValue * existValue,
     }
     return v
 }
@@ -130,22 +132,26 @@ func (plugin *NewrelicPlugin) GetPluginName() string {
 func (plugin *NewrelicPlugin) Harvest() error {
     startTime := time.Now()
     
-    if plugin.LastPollTime == 0 {
+    if plugin.LastPollTime.IsZero() {
         plugin.Components[0].Duration = plugin.GetReportIntervalInSeconds()
     } else {
-        plugin.Components[0].Duration = startTime.Sub(plugin.LastPollTime)
+        plugin.Components[0].Duration = int(startTime.Sub(plugin.LastPollTime).Seconds())
     }
 
     plugin.Components[0].Metrics = make(map[string]MetricaValue, len(plugin.MetricaModels))
     for i := 0; i < len(plugin.MetricaModels); i++ {
         model := plugin.MetricaModels[i]
         if newValue, err := model.GetValue(); err == nil {
-            if existMetric, ok := plugin.Components[0].Metrics[model.GetName()], ok {
+            if existMetric, ok := plugin.Components[0].Metrics[model.GetName()]; ok {
                 if floatExistVal, ok := existMetric.(float64); ok {
                     plugin.Components[0].Metrics[model.GetName()] = NewAggregatedMetricaValue(floatExistVal, newValue)
                 }
             } else {
-                plugin.Components[0].Metrics[model.GetName()].Aggregate(newValue)
+                if aggregatedValue, ok := plugin.Components[0].Metrics[model.GetName()].(AggregatedMetricaValue); ok {
+                    aggregatedValue.Aggregate(newValue)
+                } else {
+                    panic("Invalid type in metrica value")
+                }
             }
         } else {
             log.Printf("Can not get metrica: %v, got error:%#v", model.GetName(), err)
@@ -154,6 +160,7 @@ func (plugin *NewrelicPlugin) Harvest() error {
 
     if httpCode, err := plugin.SendMetricas(); err != nil {
         log.Printf("Can not send metricas to newrelic: %#v\n", err)
+        return err
     } else {
 
         if plugin.Verbose {
@@ -164,15 +171,16 @@ func (plugin *NewrelicPlugin) Harvest() error {
             log.Fatalf("Got fatal error:%v\n")
         } else {
             log.Printf("WARNING: %v", err)
+            return err
         }
     }
-    return err
+    return nil
 }
 
-func (plugin *NewrelicPlugin) SendMetricas() int, error {
+func (plugin *NewrelicPlugin) SendMetricas() (int, error) {
     if metricasJson, err := json.MarshalIndent(plugin, "", "    "); err != nil {
         return 0, err
-    } else if httpRequest, err := NewRequest("POST", NEWRELIC_API_URL, bytes.NewReader(metricasJson)); err != nil {
+    } else if httpRequest, err := http.NewRequest("POST", NEWRELIC_API_URL, bytes.NewReader(metricasJson)); err != nil {
         return 0, err
     } else {
         httpRequest.Header.Set("Content-Type", "application/json")
@@ -186,41 +194,43 @@ func (plugin *NewrelicPlugin) SendMetricas() int, error {
         }
 
         if httpResponse, err := http.DefaultClient.Do(httpRequest); err != nil {
-            return err
+            return 0, err
         } else {
             defer httpResponse.Body.Close()
-            return httpResponse.StatusCode
+            return httpResponse.StatusCode, nil
         }
     }
+    // we will never get there
+    return 0, nil
 }
 
-func (plugin *NewrelicPlugin) CheckResponse(httpResponseCode int) error, bool {
+func (plugin *NewrelicPlugin) CheckResponse(httpResponseCode int) (error, bool) {
     isFatal := false
     var err error
     switch httpResponseCode {
-        http.StatusOK:{
+        case http.StatusOK:{
             plugin.Components[0].Metrics = nil
             plugin.LastPollTime = time.Now()
         }
-        http.StatusForbidden:{
+        case http.StatusForbidden:{
             err = fmt.Errorf("Authentication error (no license key header, or invalid license key).\n")
             isFatal = true
         }
-        http.StatusBadRequest:{
+        case http.StatusBadRequest:{
             err = fmt.Errorf("The request or headers are in the wrong format or the URL is incorrect.\n")
             isFatal = true
         }
-        http.StatusNotFound:{
+        case http.StatusNotFound:{
             err = fmt.Errorf("Invalid URL\n")
             isFatal = true
         }
-        http.StatusRequestEntityTooLarge:{
+        case http.StatusRequestEntityTooLarge:{
             err = fmt.Errorf("Too many metrics were sent in one request, or too many components (instances) were specified in one request, or other single-request limits were reached.\n")
             //discard metrics
             plugin.Components[0].Metrics = nil
             plugin.LastPollTime = time.Now()
         }
-        http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout: {
+        case http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout: {
             err = fmt.Errorf("Got %v response code.Metricas will be aggregated")
         }
     }
