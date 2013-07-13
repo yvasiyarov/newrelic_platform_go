@@ -17,7 +17,7 @@ const (
 )
 
 var (
-    GUID = "com.example.golang_plugin"
+    GUID = "com.example.golang_plugin.qqq"
     VERSION = "0.0.1"
     PLUGIN_NAME = "Example Go Plugin"
     REPORT_INTERVAL_IN_SECONDS = 60
@@ -195,13 +195,15 @@ func (plugin *NewrelicPlugin) Harvest() error {
 }
 
 func (plugin *NewrelicPlugin) SendMetricas() (int, error) {
-    if metricasJson, err := json.MarshalIndent(plugin, "", "    "); err != nil {
+    //if metricasJson, err := json.MarshalIndent(plugin, "", "    "); err != nil {
+    if metricasJson, err := json.Marshal(plugin); err != nil {
         return 0, err
     } else if httpRequest, err := http.NewRequest("POST", NEWRELIC_API_URL, bytes.NewReader(metricasJson)); err != nil {
         return 0, err
     } else {
-        httpRequest.Header.Set("Content-Type", "application/json")
         httpRequest.Header.Set("X-License-Key", plugin.GetLicenseKey())
+        httpRequest.Header.Set("Content-Type", "application/json")
+        httpRequest.Header.Set("Accept", "application/json")
     
         //TODO: implement compression
         //httpRequest.Header.Set("Content-Encoding", "gzip")
@@ -268,7 +270,7 @@ func (metrica WaveMetrica) GetName() string {
     return "Wave_Metrica"
 }
 func (metrica WaveMetrica) GetUnits() string {
-    return "value"
+    return "Queries/Second"
 }
 func (metrica WaveMetrica) GetValue() (float64, error) {
     return 5,  nil
