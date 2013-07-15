@@ -30,5 +30,5 @@ func main() {
 	component.AddMetrica(m)
 
 	plugin.Verbose = true
-	plugin.Harvest()
+	plugin.Run()
 }
