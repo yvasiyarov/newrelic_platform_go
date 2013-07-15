@@ -18,6 +18,7 @@ type INewrelicPlugin interface {
 	GetMetricaKey(metrica IMetrica) string
 	Harvest() error
 	Run()
+	AddComponent(component IComponent)
 }
 type NewrelicPlugin struct {
 	Agent      *Agent          `json:"agent"`
@@ -183,4 +184,8 @@ func (plugin *NewrelicPlugin) Run() {
 			log.Printf("Harvest ended at:%v\n", ts)
 		}
 	}
+}
+
+func (plugin *NewrelicPlugin) AddComponent(component IComponent) {
+	plugin.ComponentModels = append(plugin.ComponentModels, component)
 }
