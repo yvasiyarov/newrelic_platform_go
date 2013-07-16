@@ -9,14 +9,14 @@ type WaveMetrica struct {
 	sawtoothCounter int
 }
 
-func (metrica WaveMetrica) GetName() string {
+func (metrica *WaveMetrica) GetName() string {
 	return "Wave_Metrica"
 }
-func (metrica WaveMetrica) GetUnits() string {
+func (metrica *WaveMetrica) GetUnits() string {
 	return "Queries/Second"
 }
-func (metrica WaveMetrica) GetValue() (float64, error) {
-	metrica.sawtoothCounter = metrica.sawtoothCounter + 1
+func (metrica *WaveMetrica) GetValue() (float64, error) {
+	metrica.sawtoothCounter++
 	if metrica.sawtoothCounter > metrica.sawtoothMax {
 		metrica.sawtoothCounter = 0
 	}
@@ -28,15 +28,16 @@ type SquareWaveMetrica struct {
 	squarewaveCounter int
 }
 
-func (metrica SquareWaveMetrica) GetName() string {
+func (metrica *SquareWaveMetrica) GetName() string {
 	return "SquareWave_Metrica"
 }
-func (metrica SquareWaveMetrica) GetUnits() string {
+func (metrica *SquareWaveMetrica) GetUnits() string {
 	return "Queries/Second"
 }
-func (metrica SquareWaveMetrica) GetValue() (float64, error) {
+func (metrica *SquareWaveMetrica) GetValue() (float64, error) {
 	returnValue := 0
-	metrica.squarewaveCounter = metrica.squarewaveCounter + 1
+	metrica.squarewaveCounter++
+
 	if metrica.squarewaveCounter < (metrica.squarewaveMax / 2) {
 		returnValue = 0
 	} else {
@@ -54,15 +55,15 @@ func main() {
 	component := newrelic_platform_go.NewPluginComponent("Wave component", "com.exmaple.plugin.gowave")
 	plugin.AddComponent(component)
 
-	m := WaveMetrica{
+	m := &WaveMetrica{
 		sawtoothMax:     10,
 		sawtoothCounter: 5,
 	}
 	component.AddMetrica(m)
 
-	m1 := SquareWaveMetrica{
-		squarewaveMax:     14,
-		squarewaveCounter: 7,
+	m1 := &SquareWaveMetrica{
+		squarewaveMax:     4,
+		squarewaveCounter: 1,
 	}
 	component.AddMetrica(m1)
 
