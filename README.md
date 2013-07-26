@@ -6,3 +6,6 @@ New Relic Platform Agent SDK for Go(golang)
 This package provide very simple interface to NewRelic Platform http://newrelic.com/platform
 
 For example of usage see examples/wave_plugin.go
+
+For real-word example, you can have a look at:   
+https://github.com/yvasiyarov/newrelic_sphinx   
