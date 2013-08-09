@@ -50,7 +50,7 @@ func (component *PluginComponent) Harvest(plugin INewrelicPlugin) ComponentData 
 			if existMetric, ok := component.Metrics[metricaKey]; ok {
 				if floatExistVal, ok := existMetric.(float64); ok {
 					component.Metrics[metricaKey] = NewAggregatedMetricaValue(floatExistVal, newValue)
-				} else if aggregatedValue, ok := component.Metrics[metricaKey].(AggregatedMetricaValue); ok {
+				} else if aggregatedValue, ok := existMetric.(*AggregatedMetricaValue); ok {
 					aggregatedValue.Aggregate(newValue)
 				} else {
 					panic("Invalid type in metrica value")
