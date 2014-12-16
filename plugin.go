@@ -60,7 +60,7 @@ func (plugin *NewrelicPlugin) Harvest() error {
 	}
 
 	if httpCode, err := plugin.SendMetricas(); err != nil {
-		log.Printf("Can not send metricas to newrelic: %#v\n", err)
+		log.Printf("Can not send metricas to newrelic: %v\n", err)
 		return err
 	} else {
 

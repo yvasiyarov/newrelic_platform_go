@@ -64,7 +64,7 @@ func (component *PluginComponent) Harvest(plugin INewrelicPlugin) ComponentData 
 				component.Metrics[metricaKey] = newValue
 			}
 		} else {
-			log.Printf("Can not get metrica: %v, got error:%#v", model.GetName(), err)
+			log.Printf("Can not get metrica: %v, got error:%v", model.GetName(), err)
 		}
 	}
 	return component
