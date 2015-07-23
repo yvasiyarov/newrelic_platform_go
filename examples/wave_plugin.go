@@ -52,7 +52,7 @@ func (metrica *SquareWaveMetrica) GetValue() (float64, error) {
 
 func main() {
 	plugin := newrelic_platform_go.NewNewrelicPlugin("0.0.1", "7bceac019c7dcafae1ef95be3e3a3ff8866de246", 60)
-	component := newrelic_platform_go.NewPluginComponent("Wave component", "com.exmaple.plugin.gowave")
+	component := newrelic_platform_go.NewPluginComponent("Wave component", "com.exmaple.plugin.gowave", true)
 	plugin.AddComponent(component)
 
 	m := &WaveMetrica{
