@@ -19,12 +19,14 @@ type PluginComponent struct {
 	Duration      int                     `json:"duration"`
 	Metrics       map[string]MetricaValue `json:"metrics"`
 	MetricaModels []IMetrica              `json:"-"`
+	Verbose       bool                    `json:"-"`
 }
 
-func NewPluginComponent(name string, guid string) *PluginComponent {
+func NewPluginComponent(name string, guid string, verbose bool) *PluginComponent {
 	c := &PluginComponent{
-		Name: name,
-		GUID: guid,
+		Name:    name,
+		GUID:    guid,
+		Verbose: verbose,
 	}
 	return c
 }
@@ -48,9 +50,9 @@ func (component *PluginComponent) Harvest(plugin INewrelicPlugin) ComponentData 
 		metricaKey := plugin.GetMetricaKey(model)
 
 		if newValue, err := model.GetValue(); err == nil {
-		        if math.IsInf(newValue, 0) || math.IsNaN(newValue) {
-                                newValue = 0
-                        }
+			if math.IsInf(newValue, 0) || math.IsNaN(newValue) {
+				newValue = 0
+			}
 
 			if existMetric, ok := component.Metrics[metricaKey]; ok {
 				if floatExistVal, ok := existMetric.(float64); ok {
@@ -64,7 +66,9 @@ func (component *PluginComponent) Harvest(plugin INewrelicPlugin) ComponentData 
 				component.Metrics[metricaKey] = newValue
 			}
 		} else {
-			log.Printf("Can not get metrica: %v, got error:%v", model.GetName(), err)
+			if component.Verbose {
+				log.Printf("Can not get metrica: %v, got error:%v", model.GetName(), err)
+			}
 		}
 	}
 	return component
