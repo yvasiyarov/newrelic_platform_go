@@ -3,6 +3,7 @@ package newrelic_platform_go
 import (
 	"log"
 	"math"
+	"sync"
 )
 
 type ComponentData interface{}
@@ -20,6 +21,7 @@ type PluginComponent struct {
 	Metrics       map[string]MetricaValue `json:"metrics"`
 	MetricaModels []IMetrica              `json:"-"`
 	Verbose       bool                    `json:"-"`
+	mux           sync.Mutex
 }
 
 func NewPluginComponent(name string, guid string, verbose bool) *PluginComponent {
@@ -32,18 +34,26 @@ func NewPluginComponent(name string, guid string, verbose bool) *PluginComponent
 }
 
 func (component *PluginComponent) AddMetrica(model IMetrica) {
+	component.mux.Lock()
+	defer component.mux.Unlock()
 	component.MetricaModels = append(component.MetricaModels, model)
 }
 
 func (component *PluginComponent) ClearSentData() {
+	component.mux.Lock()
+	defer component.mux.Unlock()
 	component.Metrics = nil
 }
 
 func (component *PluginComponent) SetDuration(duration int) {
+	component.mux.Lock()
+	defer component.mux.Unlock()
 	component.Duration = duration
 }
 
 func (component *PluginComponent) Harvest(plugin INewrelicPlugin) ComponentData {
+	component.mux.Lock()
+	defer component.mux.Unlock()
 	component.Metrics = make(map[string]MetricaValue, len(component.MetricaModels))
 	for i := 0; i < len(component.MetricaModels); i++ {
 		model := component.MetricaModels[i]
