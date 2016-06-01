@@ -28,6 +28,9 @@ type NewrelicPlugin struct {
 	// to use a proxy.
 	Client http.Client `json:"-"`
 
+	// The URL to use for New Relic. Can change for testing purposes. Defaults to NERELIC_API_URL
+	URL string
+
 	ComponentModels      []IComponent `json:"-"`
 	LastPollTime         time.Time    `json:"-"`
 	Verbose              bool         `json:"-"`
@@ -43,6 +46,7 @@ func NewNewrelicPlugin(version string, licenseKey string, pollInterval int) *New
 
 	plugin.Agent = NewAgent(version)
 	plugin.Agent.CollectEnvironmentInfo()
+	plugin.URL = NEWRELIC_API_URL
 
 	plugin.ComponentModels = []IComponent{}
 	return plugin
@@ -116,7 +120,7 @@ func (plugin *NewrelicPlugin) SendMetricas() (int, error) {
 		log.Printf("Send data:%s \n", jsonAsString)
 	}
 
-	if httpRequest, err := http.NewRequest("POST", NEWRELIC_API_URL, strings.NewReader(jsonAsString)); err != nil {
+	if httpRequest, err := http.NewRequest("POST", plugin.URL, strings.NewReader(jsonAsString)); err != nil {
 		return 0, err
 	} else {
 		httpRequest.Header.Set("X-License-Key", plugin.LicenseKey)
